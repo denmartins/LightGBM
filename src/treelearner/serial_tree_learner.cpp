@@ -536,6 +536,13 @@ void SerialTreeLearner::FindBestSplitsFromHistograms(
                                smaller_leaf_splits_.get(), &smaller_best[tid],
                                smaller_leaf_parent_output);
 
+    if (cegb_ != nullptr) {
+      /*[DenisMartins] update feature usage*/
+      Log::Debug("Feature used: %d", smaller_best[tid].feature);
+      cegb_->features_used_global_[smaller_best[tid].feature] += 1;
+      cegb_->splits_used_global_.insert(smaller_best[tid].threshold);
+    }
+
     // only has root leaf
     if (larger_leaf_splits_ == nullptr ||
         larger_leaf_splits_->leaf_index() < 0) {
@@ -595,6 +602,13 @@ void SerialTreeLearner::FindBestSplitsFromHistograms(
                                larger_leaf_splits_->num_data_in_leaf(),
                                larger_leaf_splits_.get(), &larger_best[tid],
                                larger_leaf_parent_output);
+
+    if (cegb_ != nullptr) {
+      /*[DenisMartins] update feature usage*/
+      Log::Debug("Feature used: %d", larger_best[tid].feature);
+      cegb_->features_used_global_[larger_best[tid].feature] += 1;
+      cegb_->splits_used_global_.insert(larger_best[tid].threshold);
+    }
 
     OMP_LOOP_EX_END();
   }

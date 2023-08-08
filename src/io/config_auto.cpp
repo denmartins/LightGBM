@@ -240,6 +240,8 @@ const std::unordered_set<std::string>& Config::parameter_set() {
   "feature_contri",
   "forcedsplits_filename",
   "refit_decay_rate",
+  "tinytree_penalty_feature",
+  "tinytree_penalty_split",
   "cegb_tradeoff",
   "cegb_penalty_split",
   "cegb_penalty_feature_lazy",
@@ -467,6 +469,12 @@ void Config::GetMembersFromString(const std::unordered_map<std::string, std::str
   GetDouble(params, "refit_decay_rate", &refit_decay_rate);
   CHECK_GE(refit_decay_rate, 0.0);
   CHECK_LE(refit_decay_rate, 1.0);
+
+  GetDouble(params, "tinytree_penalty_feature", &tinytree_penalty_feature);
+  CHECK_GE(tinytree_penalty_feature, 0.0);
+
+  GetDouble(params, "tinytree_penalty_split", &tinytree_penalty_split);
+  CHECK_GE(tinytree_penalty_split, 0.0);
 
   GetDouble(params, "cegb_tradeoff", &cegb_tradeoff);
   CHECK_GE(cegb_tradeoff, 0.0);

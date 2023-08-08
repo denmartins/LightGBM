@@ -13,6 +13,8 @@
 #include <LightGBM/utils/threading.h>
 
 #include <vector>
+#include <iostream>
+#include <cmath>
 
 #include "data_partition.hpp"
 #include "serial_tree_learner.h"
@@ -25,11 +27,21 @@ class CostEfficientGradientBoosting {
   explicit CostEfficientGradientBoosting(const SerialTreeLearner* tree_learner)
       : init_(false), tree_learner_(tree_learner) {}
   static bool IsEnable(const Config* config) {
-    if (config->cegb_tradeoff >= 1.0f && config->cegb_penalty_split <= 0.0f &&
+    /* [DenisMartins] Debugging */
+    Log::Debug("Penalty feature: %f", config->tinytree_penalty_feature);
+    Log::Debug("Penalty split: %f", config->tinytree_penalty_split);
+    Log::Debug("Penalty split (cegb): %f", config->cegb_penalty_split);
+    Log::Debug("Tradeoff: %f (cegb)", config->cegb_tradeoff);
+    if (config->tinytree_penalty_feature <= 0.0f && 
+        config->tinytree_penalty_split <= 0.0f && 
+        config->cegb_tradeoff >= 1.0f &&
+        config->cegb_penalty_split <= 0.0f &&
         config->cegb_penalty_feature_coupled.empty() &&
         config->cegb_penalty_feature_lazy.empty()) {
+      Log::Debug("CEGB disabled");
       return false;
     } else {
+      Log::Debug("CEGB enabled");
       return true;
     }
   }
@@ -42,6 +54,9 @@ class CostEfficientGradientBoosting {
           train_data->num_features());
       is_feature_used_in_split_.clear();
       is_feature_used_in_split_.resize(train_data->num_features());
+      features_used_global_.clear();
+      features_used_global_.resize(train_data->num_features());
+      splits_used_global_.clear();
     }
 
     if (!tree_learner_->config_->cegb_penalty_feature_coupled.empty() &&
@@ -76,6 +91,15 @@ class CostEfficientGradientBoosting {
     });
   }
 
+  int ComputeBitUsage(int length){
+    if (length < 2) {
+      return 1;
+    }
+    else {
+      return static_cast<int>(std::floor(std::log2(length))) + 1;
+    }
+  }
+
   double DeltaGain(int feature_index, int real_fidx, int leaf_index,
                    int num_data_in_leaf, SplitInfo split_info) {
     auto config = tree_learner_->config_;
@@ -90,6 +114,28 @@ class CostEfficientGradientBoosting {
       delta += config->cegb_tradeoff *
                CalculateOndemandCosts(feature_index, real_fidx, leaf_index);
     }
+    /* [DenisMartins] If feature wasn't used already, the model should pay a price */
+    if (features_used_global_[feature_index] == 0){
+
+      // int current_length = std::count_if(
+      //   features_used_global_.begin(), 
+      //   features_used_global_.end(), [](int element) {
+      //       return element > 0;
+      // });
+
+      // int current_bits = ComputeBitUsage(current_length);
+      // int next_bits = ComputeBitUsage(current_length + 1);
+      // int difference = next_bits - current_bits;
+
+      // delta += config->tinytree_penalty_feature * difference;
+
+      delta += config->tinytree_penalty_feature;
+    }
+    
+    if (splits_used_global_.find(split_info.threshold) == splits_used_global_.end()) {
+      delta += config->tinytree_penalty_split;
+    }
+
     splits_per_leaf_[static_cast<size_t>(leaf_index) *
                          tree_learner_->train_data_->num_features() +
                      feature_index] = split_info;
@@ -167,6 +213,10 @@ class CostEfficientGradientBoosting {
   std::vector<SplitInfo> splits_per_leaf_;
   std::vector<bool> is_feature_used_in_split_;
   std::vector<uint32_t> feature_used_in_data_;
+  
+  public:
+    std::vector<uint32_t> features_used_global_; /*[DenisMartins]*/
+    std::set<uint32_t> splits_used_global_; /*[DenisMartins]*/
 };
 
 }  // namespace LightGBM
