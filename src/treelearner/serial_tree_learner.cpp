@@ -31,6 +31,11 @@ void SerialTreeLearner::Init(const Dataset* train_data, bool is_constant_hessian
   train_data_ = train_data;
   num_data_ = train_data_->num_data();
   num_features_ = train_data_->num_features();
+
+  features_used_global_.clear();
+  features_used_global_.resize(train_data->num_features());
+  splits_used_global_.clear();
+
   int max_cache_size = 0;
   // Get the max size of pool
   if (config_->histogram_pool_size <= 0) {
@@ -536,13 +541,6 @@ void SerialTreeLearner::FindBestSplitsFromHistograms(
                                smaller_leaf_splits_.get(), &smaller_best[tid],
                                smaller_leaf_parent_output);
 
-    if (cegb_ != nullptr) {
-      /*[DenisMartins] update feature usage*/
-      Log::Debug("Feature used: %d", smaller_best[tid].feature);
-      cegb_->features_used_global_[smaller_best[tid].feature] += 1;
-      cegb_->splits_used_global_.insert(smaller_best[tid].threshold);
-    }
-
     // only has root leaf
     if (larger_leaf_splits_ == nullptr ||
         larger_leaf_splits_->leaf_index() < 0) {
@@ -602,14 +600,6 @@ void SerialTreeLearner::FindBestSplitsFromHistograms(
                                larger_leaf_splits_->num_data_in_leaf(),
                                larger_leaf_splits_.get(), &larger_best[tid],
                                larger_leaf_parent_output);
-
-    if (cegb_ != nullptr) {
-      /*[DenisMartins] update feature usage*/
-      Log::Debug("Feature used: %d", larger_best[tid].feature);
-      cegb_->features_used_global_[larger_best[tid].feature] += 1;
-      cegb_->splits_used_global_.insert(larger_best[tid].threshold);
-    }
-
     OMP_LOOP_EX_END();
   }
   OMP_THROW_EX();
@@ -773,6 +763,15 @@ void SerialTreeLearner::SplitInner(Tree* tree, int best_leaf, int* left_leaf,
   SplitInfo& best_split_info = best_split_per_leaf_[best_leaf];
   const int inner_feature_index =
       train_data_->InnerFeatureIndex(best_split_info.feature);
+  
+  /*[TinyGBDT] BEGIN: update feature and split usage*/
+  const SplitInfo* bsplit = &best_split_info;
+  features_used_global_[bsplit->feature] += 1;
+  splits_used_global_.insert(bsplit->threshold);
+  Log::Debug("Best split. Feature: %d, Value: %f, Gain: %f", 
+              bsplit->feature, bsplit->threshold, bsplit->gain);
+  /*[TinyGBDT] END*/
+  
   if (cegb_ != nullptr) {
     cegb_->UpdateLeafBestSplits(tree, best_leaf, &best_split_info,
                                 &best_split_per_leaf_);
@@ -960,6 +959,17 @@ void SerialTreeLearner::ComputeBestSplitForFeature(
         constraints_->GetFeatureConstraint(leaf_splits->leaf_index(), feature_index), parent_output, &new_split);
   }
   new_split.feature = real_fidx;
+
+  /*[TinyGBDT] BEGIN: if feature/split is not used, the model should pay a price*/
+  new_split.feature = real_fidx;
+  if (features_used_global_[feature_index] == 0){
+      new_split.gain -= config_->tinytree_penalty_feature;
+  }
+  if (splits_used_global_.find(new_split.threshold) == splits_used_global_.end()) {
+    new_split.gain -= config_->tinytree_penalty_split;
+  }
+  /*[TinyGBDT] END */
+
   if (cegb_ != nullptr) {
     new_split.gain -=
         cegb_->DeltaGain(feature_index, real_fidx, leaf_splits->leaf_index(),

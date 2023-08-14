@@ -47,6 +47,9 @@ class CostEfficientGradientBoosting;
 */
 class SerialTreeLearner: public TreeLearner {
  public:
+  std::vector<uint32_t> features_used_global_; /*[DenisMartins]*/
+  std::set<uint32_t> splits_used_global_; /*[DenisMartins]*/
+  
   friend CostEfficientGradientBoosting;
   explicit SerialTreeLearner(const Config* config);
 
