@@ -240,8 +240,10 @@ const std::unordered_set<std::string>& Config::parameter_set() {
   "feature_contri",
   "forcedsplits_filename",
   "refit_decay_rate",
-  "tinytree_penalty_feature",
-  "tinytree_penalty_split",
+  /*[tinygbdt] BEGIN: Exposing hyperparameters */
+  "tinygbdt_penalty_feature",
+  "tinygbdt_penalty_split",
+  /*[tinygbdt] END */  
   "cegb_tradeoff",
   "cegb_penalty_split",
   "cegb_penalty_feature_lazy",
@@ -470,11 +472,13 @@ void Config::GetMembersFromString(const std::unordered_map<std::string, std::str
   CHECK_GE(refit_decay_rate, 0.0);
   CHECK_LE(refit_decay_rate, 1.0);
 
-  GetDouble(params, "tinytree_penalty_feature", &tinytree_penalty_feature);
-  CHECK_GE(tinytree_penalty_feature, 0.0);
+  /*[tinygbdt] BEGIN: Check for hyperparameter values*/
+  GetDouble(params, "tinygbdt_penalty_feature", &tinygbdt_penalty_feature);
+  CHECK_GE(tinygbdt_penalty_feature, 0.0);
 
-  GetDouble(params, "tinytree_penalty_split", &tinytree_penalty_split);
-  CHECK_GE(tinytree_penalty_split, 0.0);
+  GetDouble(params, "tinygbdt_penalty_split", &tinygbdt_penalty_split);
+  CHECK_GE(tinygbdt_penalty_split, 0.0);
+/*[tinygbdt] END*/
 
   GetDouble(params, "cegb_tradeoff", &cegb_tradeoff);
   CHECK_GE(cegb_tradeoff, 0.0);

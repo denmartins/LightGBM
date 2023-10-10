@@ -525,12 +525,12 @@ struct Config {
   double refit_decay_rate = 0.9;
 
   // check = >=0.0
-  // desc = tinytree penalty for using a new feature
-  double tinytree_penalty_feature = 0.0;
+  // desc = [tinygbdt] penalty for using a new feature
+  double tinygbdt_penalty_feature = 0.0;
 
   // check = >=0.0
-  // desc = tinytree penalty for using a new split value
-  double tinytree_penalty_split = 0.0;
+  // desc = [tinygbdt] penalty for using a new split value
+  double tinygbdt_penalty_split = 0.0;
 
   // check = >=0.0
   // desc = cost-effective gradient boosting multiplier for all penalties

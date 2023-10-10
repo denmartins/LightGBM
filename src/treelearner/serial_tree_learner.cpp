@@ -32,9 +32,11 @@ void SerialTreeLearner::Init(const Dataset* train_data, bool is_constant_hessian
   num_data_ = train_data_->num_data();
   num_features_ = train_data_->num_features();
 
+  /*[tinygbdt] BEGIN: Initializing global variables */
   features_used_global_.clear();
   features_used_global_.resize(train_data->num_features());
   splits_used_global_.clear();
+  /*[tinygbdt] END */
 
   int max_cache_size = 0;
   // Get the max size of pool
@@ -764,13 +766,12 @@ void SerialTreeLearner::SplitInner(Tree* tree, int best_leaf, int* left_leaf,
   const int inner_feature_index =
       train_data_->InnerFeatureIndex(best_split_info.feature);
   
-  /*[TinyGBDT] BEGIN: update feature and split usage*/
-  const SplitInfo* bsplit = &best_split_info;
-  features_used_global_[bsplit->feature] += 1;
-  splits_used_global_.insert(bsplit->threshold);
-  Log::Debug("Best split. Feature: %d, Value: %f, Gain: %f", 
-              bsplit->feature, bsplit->threshold, bsplit->gain);
-  /*[TinyGBDT] END*/
+  /*[tinygbdt] BEGIN: update feature and split usage*/
+  features_used_global_[best_split_info.feature] += 1;
+  splits_used_global_.insert(best_split_info.threshold);
+  Log::Debug("Best split. Feature: %d, Threshold: %f, Gain: %f", 
+              best_split_info.feature, best_split_info.threshold, best_split_info.gain);
+  /*[tinygbdt] END*/
   
   if (cegb_ != nullptr) {
     cegb_->UpdateLeafBestSplits(tree, best_leaf, &best_split_info,
@@ -849,6 +850,7 @@ void SerialTreeLearner::SplitInner(Tree* tree, int best_leaf, int* left_leaf,
         train_data_->FeatureBinMapper(inner_feature_index)->missing_type());
   }
 
+   Log::Debug("Gain: %f", best_split_info.gain);
 #ifdef DEBUG
   CHECK(*right_leaf == next_leaf_id);
 #endif
@@ -960,15 +962,15 @@ void SerialTreeLearner::ComputeBestSplitForFeature(
   }
   new_split.feature = real_fidx;
 
-  /*[TinyGBDT] BEGIN: if feature/split is not used, the model should pay a price*/
+  /*[tinygbdt] BEGIN: if feature/split is not used, the model should pay a price*/
   new_split.feature = real_fidx;
   if (features_used_global_[feature_index] == 0){
-      new_split.gain -= config_->tinytree_penalty_feature;
+      new_split.gain -= config_->tinygbdt_penalty_feature;
   }
   if (splits_used_global_.find(new_split.threshold) == splits_used_global_.end()) {
-    new_split.gain -= config_->tinytree_penalty_split;
+    new_split.gain -= config_->tinygbdt_penalty_split;
   }
-  /*[TinyGBDT] END */
+  /*[tinygbdt] END */
 
   if (cegb_ != nullptr) {
     new_split.gain -=
